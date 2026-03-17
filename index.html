@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Finance & Budget Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #f0f4f8;
+      --card: #ffffff;
+      --primary: #2563eb;
+      --primary-light: #dbeafe;
+      --success: #16a34a;
+      --success-light: #dcfce7;
+      --danger: #dc2626;
+      --danger-light: #fee2e2;
+      --warning: #d97706;
+      --warning-light: #fef3c7;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* HEADER */
+    header {
+      background: var(--primary);
+      color: white;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.3);
+    }
+    header h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.3px; }
+    header .year-selector {
+      display: flex; gap: 6px;
+    }
+    header .year-selector button {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.35);
+      color: white;
+      padding: 5px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.15s;
+    }
+    header .year-selector button.active,
+    header .year-selector button:hover { background: rgba(255,255,255,0.3); }
+
+    /* MAIN */
+    main { padding: 24px 32px; max-width: 1300px; margin: 0 auto; }
+
+    /* KPI CARDS */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi-card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 20px 22px;
+      box-shadow: var(--shadow);
+      border-left: 4px solid transparent;
+      transition: transform 0.15s;
+    }
+    .kpi-card:hover { transform: translateY(-2px); }
+    .kpi-card.income  { border-color: var(--success); }
+    .kpi-card.expense { border-color: var(--danger); }
+    .kpi-card.savings { border-color: var(--primary); }
+    .kpi-card.util    { border-color: var(--warning); }
+    .kpi-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .kpi-value { font-size: 1.7rem; font-weight: 700; }
+    .kpi-card.income  .kpi-value { color: var(--success); }
+    .kpi-card.expense .kpi-value { color: var(--danger); }
+    .kpi-card.savings .kpi-value { color: var(--primary); }
+    .kpi-card.util    .kpi-value { color: var(--warning); }
+    .kpi-sub { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+    .kpi-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 20px;
+      margin-top: 8px;
+    }
+    .badge-up   { background: var(--success-light); color: var(--success); }
+    .badge-down { background: var(--danger-light);  color: var(--danger); }
+    .badge-warn { background: var(--warning-light); color: var(--warning); }
+
+    /* CHART GRID */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .chart-grid-bottom {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 20px 22px;
+      box-shadow: var(--shadow);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .card-title { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+    .card-subtitle { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+    .chart-wrap { position: relative; }
+
+    /* FILTER TABS */
+    .filter-tabs { display: flex; gap: 4px; }
+    .filter-tabs button {
+      background: none;
+      border: 1px solid var(--border);
+      padding: 4px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      color: var(--muted);
+      transition: all 0.15s;
+    }
+    .filter-tabs button.active,
+    .filter-tabs button:hover {
+      background: var(--primary-light);
+      border-color: var(--primary);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* BUDGET TABLE */
+    .budget-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .budget-table th {
+      text-align: left;
+      padding: 8px 10px;
+      background: #f8fafc;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      border-bottom: 1px solid var(--border);
+    }
+    .budget-table td {
+      padding: 10px 10px;
+      border-bottom: 1px solid #f1f5f9;
+      color: var(--text);
+    }
+    .budget-table tr:last-child td { border-bottom: none; }
+    .budget-table tr:hover td { background: #f8fafc; }
+    .progress-wrap {
+      background: #f1f5f9;
+      border-radius: 20px;
+      height: 7px;
+      width: 110px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      border-radius: 20px;
+      transition: width 0.4s;
+    }
+    .over { color: var(--danger); font-weight: 600; }
+    .ok   { color: var(--success); }
+
+    /* CASH FLOW */
+    .cashflow-summary {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 14px;
+    }
+    .cf-item { display: flex; align-items: center; gap: 7px; font-size: 0.82rem; color: var(--muted); }
+    .cf-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    /* RESPONSIVE */
+    @media (max-width: 1000px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .chart-grid { grid-template-columns: 1fr; }
+      .chart-grid-bottom { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      main { padding: 16px; }
+      .kpi-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>💰 Finance &amp; Budget Dashboard</h1>
+    <div style="font-size:0.8rem;opacity:0.8;margin-top:3px;">Fiscal Year Overview · <span id="headerYear">2025</span></div>
+  </div>
+  <div class="year-selector" id="yearSelector">
+    <button onclick="switchYear(2023)">2023</button>
+    <button onclick="switchYear(2024)">2024</button>
+    <button class="active" onclick="switchYear(2025)">2025</button>
+  </div>
+</header>
+
+<main>
+  <!-- KPI CARDS -->
+  <div class="kpi-grid">
+    <div class="kpi-card income">
+      <div class="kpi-label">Total Income</div>
+      <div class="kpi-value" id="kpiIncome">$0</div>
+      <div class="kpi-sub">Annual gross income</div>
+      <span class="kpi-badge badge-up" id="kpiIncomeBadge">↑ 0%</span>
+    </div>
+    <div class="kpi-card expense">
+      <div class="kpi-label">Total Expenses</div>
+      <div class="kpi-value" id="kpiExpense">$0</div>
+      <div class="kpi-sub">Annual total spending</div>
+      <span class="kpi-badge badge-down" id="kpiExpenseBadge">↑ 0%</span>
+    </div>
+    <div class="kpi-card savings">
+      <div class="kpi-label">Net Savings</div>
+      <div class="kpi-value" id="kpiSavings">$0</div>
+      <div class="kpi-sub">Income minus expenses</div>
+      <span class="kpi-badge badge-up" id="kpiSavingsBadge">↑ 0%</span>
+    </div>
+    <div class="kpi-card util">
+      <div class="kpi-label">Budget Utilization</div>
+      <div class="kpi-value" id="kpiUtil">0%</div>
+      <div class="kpi-sub">Expenses vs. budget</div>
+      <span class="kpi-badge badge-warn" id="kpiUtilBadge">of $0 budgeted</span>
+    </div>
+  </div>
+
+  <!-- ROW 1: Income vs Expenses + Category Donut -->
+  <div class="chart-grid">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Income vs. Expenses</div>
+          <div class="card-subtitle">Monthly breakdown</div>
+        </div>
+        <div class="filter-tabs" id="chartViewTabs">
+          <button class="active" onclick="switchChartView('bar', this)">Bar</button>
+          <button onclick="switchChartView('line', this)">Line</button>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="incomeExpenseChart" height="90"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Spending by Category</div>
+          <div class="card-subtitle">Annual total</div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="categoryChart" height="190"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 2: Cash Flow + Budget vs Actuals -->
+  <div class="chart-grid-bottom">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Cumulative Cash Flow</div>
+          <div class="card-subtitle">Running savings balance throughout the year</div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="cashFlowChart" height="130"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Budget vs. Actuals</div>
+          <div class="card-subtitle">Spending categories</div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="budgetChart" height="130"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- BUDGET TABLE -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Category Budget Detail</div>
+        <div class="card-subtitle">Budget allocation and actual spend with utilization</div>
+      </div>
+    </div>
+    <table class="budget-table" id="budgetTable">
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Budget</th>
+          <th>Actual</th>
+          <th>Remaining</th>
+          <th>Utilization</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="budgetTableBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────────────────
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const DATA = {
+  2023: {
+    income:   [8200,8200,8400,8400,8600,8600,8800,8800,9000,9000,9200,11500],
+    expenses: [6100,6300,6050,6500,6200,6800,6400,6900,6300,7000,6800,8200],
+    budget:   { Housing:18000, Food:7200, Transport:4800, Healthcare:2400, Entertainment:3600, Utilities:2400, Savings:6000, Other:3600 },
+    actual:   { Housing:17800, Food:7600, Transport:5100, Healthcare:2100, Entertainment:4200, Utilities:2300, Savings:5500, Other:3900 }
+  },
+  2024: {
+    income:   [8800,8800,9000,9000,9200,9200,9400,9400,9600,9600,9800,12200],
+    expenses: [6400,6600,6300,6700,6500,7100,6700,7200,6600,7300,7000,8600],
+    budget:   { Housing:19200, Food:7800, Transport:5200, Healthcare:2600, Entertainment:3900, Utilities:2600, Savings:7200, Other:3900 },
+    actual:   { Housing:19000, Food:8100, Transport:5400, Healthcare:2800, Entertainment:4500, Utilities:2500, Savings:6800, Other:4100 }
+  },
+  2025: {
+    income:   [9400,9400,9600,9600,9800,9800,10000,10000,10200,10200,10400,13000],
+    expenses: [6800,7000,6700,7100,6900,7500,7100,7600,7000,7700,7400,9000],
+    budget:   { Housing:20400, Food:8400, Transport:5600, Healthcare:2800, Entertainment:4200, Utilities:2800, Savings:8400, Other:4200 },
+    actual:   { Housing:20200, Food:8900, Transport:5800, Healthcare:2600, Entertainment:5100, Utilities:2700, Savings:7900, Other:4500 }
+  }
+};
+
+const CATEGORY_COLORS = {
+  Housing:       '#2563eb',
+  Food:          '#16a34a',
+  Transport:     '#d97706',
+  Healthcare:    '#9333ea',
+  Entertainment: '#e11d48',
+  Utilities:     '#0891b2',
+  Savings:       '#059669',
+  Other:         '#94a3b8'
+};
+
+let currentYear = 2025;
+let incomeExpenseChart, categoryChart, cashFlowChart, budgetChart;
+let currentChartType = 'bar';
+
+// ─── HELPERS ────────────────────────────────────────────────────────────────
+const fmt = n => '$' + n.toLocaleString();
+const pct = (a, b) => Math.round(a / b * 100);
+
+function sum(arr) { return arr.reduce((s, v) => s + v, 0); }
+
+function calcYearStats(year) {
+  const d = DATA[year];
+  const totalIncome   = sum(d.income);
+  const totalExpenses = sum(d.expenses);
+  const netSavings    = totalIncome - totalExpenses;
+  const totalBudget   = Object.values(d.budget).reduce((s,v)=>s+v,0);
+  const totalActual   = Object.values(d.actual).reduce((s,v)=>s+v,0);
+  const utilPct       = pct(totalActual, totalBudget);
+  return { totalIncome, totalExpenses, netSavings, totalBudget, totalActual, utilPct };
+}
+
+// ─── KPI UPDATE ─────────────────────────────────────────────────────────────
+function updateKPIs(year) {
+  const curr = calcYearStats(year);
+  const prev = year > 2023 ? calcYearStats(year - 1) : null;
+
+  document.getElementById('kpiIncome').textContent  = fmt(curr.totalIncome);
+  document.getElementById('kpiExpense').textContent = fmt(curr.totalExpenses);
+  document.getElementById('kpiSavings').textContent = fmt(curr.netSavings);
+  document.getElementById('kpiUtil').textContent    = curr.utilPct + '%';
+  document.getElementById('kpiUtilBadge').textContent = 'of ' + fmt(curr.totalBudget) + ' budgeted';
+
+  if (prev) {
+    const incChg = Math.round((curr.totalIncome - prev.totalIncome) / prev.totalIncome * 100);
+    const expChg = Math.round((curr.totalExpenses - prev.totalExpenses) / prev.totalExpenses * 100);
+    const savChg = Math.round((curr.netSavings - prev.netSavings) / Math.abs(prev.netSavings) * 100);
+    document.getElementById('kpiIncomeBadge').textContent  = (incChg >= 0 ? '↑ ' : '↓ ') + Math.abs(incChg) + '% vs prior year';
+    document.getElementById('kpiExpenseBadge').textContent = (expChg >= 0 ? '↑ ' : '↓ ') + Math.abs(expChg) + '% vs prior year';
+    document.getElementById('kpiSavingsBadge').textContent = (savChg >= 0 ? '↑ ' : '↓ ') + Math.abs(savChg) + '% vs prior year';
+    document.getElementById('kpiIncomeBadge').className  = 'kpi-badge ' + (incChg >= 0 ? 'badge-up' : 'badge-down');
+    document.getElementById('kpiExpenseBadge').className = 'kpi-badge badge-down';
+    document.getElementById('kpiSavingsBadge').className = 'kpi-badge ' + (savChg >= 0 ? 'badge-up' : 'badge-down');
+  }
+}
+
+// ─── INCOME VS EXPENSE CHART ─────────────────────────────────────────────────
+function buildIncomeExpenseChart(year, type) {
+  const d = DATA[year];
+  const ctx = document.getElementById('incomeExpenseChart').getContext('2d');
+  if (incomeExpenseChart) incomeExpenseChart.destroy();
+  incomeExpenseChart = new Chart(ctx, {
+    type: type === 'line' ? 'line' : 'bar',
+    data: {
+      labels: MONTHS,
+      datasets: [
+        {
+          label: 'Income',
+          data: d.income,
+          backgroundColor: type === 'line' ? 'rgba(22,163,74,0.1)' : 'rgba(22,163,74,0.75)',
+          borderColor: '#16a34a',
+          borderWidth: type === 'line' ? 2.5 : 0,
+          borderRadius: 5,
+          pointBackgroundColor: '#16a34a',
+          tension: 0.4,
+          fill: type === 'line',
+        },
+        {
+          label: 'Expenses',
+          data: d.expenses,
+          backgroundColor: type === 'line' ? 'rgba(220,38,38,0.1)' : 'rgba(220,38,38,0.7)',
+          borderColor: '#dc2626',
+          borderWidth: type === 'line' ? 2.5 : 0,
+          borderRadius: 5,
+          pointBackgroundColor: '#dc2626',
+          tension: 0.4,
+          fill: type === 'line',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 12 } } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ' ' + ctx.dataset.label + ': ' + fmt(ctx.parsed.y)
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: {
+          grid: { color: '#f1f5f9' },
+          ticks: { font: { size: 11 }, callback: v => '$' + (v/1000).toFixed(0) + 'k' }
+        }
+      }
+    }
+  });
+}
+
+// ─── CATEGORY DONUT ──────────────────────────────────────────────────────────
+function buildCategoryChart(year) {
+  const d = DATA[year].actual;
+  const labels = Object.keys(d);
+  const values = Object.values(d);
+  const colors = labels.map(l => CATEGORY_COLORS[l]);
+  const ctx = document.getElementById('categoryChart').getContext('2d');
+  if (categoryChart) categoryChart.destroy();
+  categoryChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 8 }]
+    },
+    options: {
+      responsive: true,
+      cutout: '62%',
+      plugins: {
+        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 }, padding: 10 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ' ' + ctx.label + ': ' + fmt(ctx.parsed)
+          }
+        }
+      }
+    }
+  });
+}
+
+// ─── CASH FLOW ───────────────────────────────────────────────────────────────
+function buildCashFlowChart(year) {
+  const d = DATA[year];
+  let running = 0;
+  const cumulative = d.income.map((inc, i) => { running += (inc - d.expenses[i]); return running; });
+  const ctx = document.getElementById('cashFlowChart').getContext('2d');
+  if (cashFlowChart) cashFlowChart.destroy();
+  cashFlowChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: MONTHS,
+      datasets: [{
+        label: 'Cumulative Savings',
+        data: cumulative,
+        fill: true,
+        backgroundColor: 'rgba(37,99,235,0.08)',
+        borderColor: '#2563eb',
+        borderWidth: 2.5,
+        pointBackgroundColor: '#2563eb',
+        pointRadius: 4,
+        tension: 0.4
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' Savings: ' + fmt(ctx.parsed.y) } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: {
+          grid: { color: '#f1f5f9' },
+          ticks: { font: { size: 11 }, callback: v => '$' + (v/1000).toFixed(0) + 'k' }
+        }
+      }
+    }
+  });
+}
+
+// ─── BUDGET VS ACTUALS ───────────────────────────────────────────────────────
+function buildBudgetChart(year) {
+  const d = DATA[year];
+  const labels = Object.keys(d.budget);
+  const budgets = labels.map(l => d.budget[l]);
+  const actuals = labels.map(l => d.actual[l]);
+  const ctx = document.getElementById('budgetChart').getContext('2d');
+  if (budgetChart) budgetChart.destroy();
+  budgetChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'Budget',  data: budgets, backgroundColor: 'rgba(148,163,184,0.55)', borderRadius: 4 },
+        { label: 'Actual',  data: actuals, backgroundColor: labels.map((l,i) => actuals[i] > budgets[i] ? 'rgba(220,38,38,0.75)' : 'rgba(37,99,235,0.75)'), borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 12 } } },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + fmt(ctx.parsed.y) } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 30 } },
+        y: {
+          grid: { color: '#f1f5f9' },
+          ticks: { font: { size: 11 }, callback: v => '$' + (v/1000).toFixed(0) + 'k' }
+        }
+      }
+    }
+  });
+}
+
+// ─── BUDGET TABLE ─────────────────────────────────────────────────────────────
+function buildBudgetTable(year) {
+  const d = DATA[year];
+  const tbody = document.getElementById('budgetTableBody');
+  tbody.innerHTML = '';
+  Object.keys(d.budget).forEach(cat => {
+    const budget = d.budget[cat];
+    const actual = d.actual[cat];
+    const remaining = budget - actual;
+    const utilization = pct(actual, budget);
+    const over = actual > budget;
+    const color = over ? '#dc2626' : utilization > 85 ? '#d97706' : '#16a34a';
+    const statusText = over ? '⚠ Over budget' : utilization > 85 ? '⚡ Near limit' : '✓ On track';
+    const statusClass = over ? 'over' : 'ok';
+    tbody.innerHTML += `
+      <tr>
+        <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${CATEGORY_COLORS[cat]};margin-right:8px;"></span>${cat}</td>
+        <td>${fmt(budget)}</td>
+        <td>${fmt(actual)}</td>
+        <td style="color:${remaining >= 0 ? '#16a34a' : '#dc2626'};font-weight:600;">${remaining >= 0 ? fmt(remaining) : '-' + fmt(Math.abs(remaining))}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="progress-wrap">
+              <div class="progress-bar" style="width:${Math.min(utilization,100)}%;background:${color};"></div>
+            </div>
+            <span style="font-size:0.8rem;color:${color};font-weight:600;">${utilization}%</span>
+          </div>
+        </td>
+        <td class="${statusClass}" style="font-size:0.82rem;">${statusText}</td>
+      </tr>`;
+  });
+}
+
+// ─── YEAR SWITCH ─────────────────────────────────────────────────────────────
+function switchYear(year) {
+  currentYear = year;
+  document.getElementById('headerYear').textContent = year;
+  document.querySelectorAll('#yearSelector button').forEach(b => {
+    b.classList.toggle('active', b.textContent == year);
+  });
+  renderAll();
+}
+
+function switchChartView(type, btn) {
+  currentChartType = type;
+  document.querySelectorAll('#chartViewTabs button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  buildIncomeExpenseChart(currentYear, currentChartType);
+}
+
+function renderAll() {
+  updateKPIs(currentYear);
+  buildIncomeExpenseChart(currentYear, currentChartType);
+  buildCategoryChart(currentYear);
+  buildCashFlowChart(currentYear);
+  buildBudgetChart(currentYear);
+  buildBudgetTable(currentYear);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+renderAll();
+</script>
+</body>
+</html>
